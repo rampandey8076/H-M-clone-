@@ -1,4 +1,4 @@
-const express = require('express');
+const express = require("express");
 
 const app = express();
 
@@ -12,6 +12,16 @@ app.post("/", (req, res) => {
 
 app.get("/about", (req, res) => {
     res.send("this is the about page");
+});
+
+// PUT - Update
+app.put("/", (req, res) => {
+    res.send("PUT request - update something");
+});
+
+// DELETE - Delete
+app.delete("/", (req, res) => {
+    res.send("DELETE request - delete something");
 });
 
 // 404 handler
