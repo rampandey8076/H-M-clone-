@@ -1,32 +1,29 @@
 const express = require("express");
+const productRoutes = require("./routes/productRoutes");
 
 const app = express();
 
+// Middleware
+app.use(express.json());
+
+// Home
 app.get("/", (req, res) => {
-    res.send("hello world");
+    res.send("H&M Clone API is running");
 });
 
-app.post("/", (req, res) => {
-    res.send("POST request to the homepage");
-});
-
+// About
 app.get("/about", (req, res) => {
-    res.send("this is the about page");
+    res.send("This is the H&M Clone backend");
 });
 
-// PUT - Update
-app.put("/", (req, res) => {
-    res.send("PUT request - update something");
-});
-
-// DELETE - Delete
-app.delete("/", (req, res) => {
-    res.send("DELETE request - delete something");
-});
+// Product routes
+app.use("/api/products", productRoutes);
 
 // 404 handler
 app.use((req, res) => {
-    res.status(404).send("404 - Page not found");
+    res.status(404).json({
+        message: "404 - Route not found"
+    });
 });
 
 module.exports = app;
