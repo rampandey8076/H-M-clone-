@@ -31,6 +31,22 @@ router.get("/", async (req, res) => {
     }
 });
 
+// Get product count
+router.get("/count", async (req, res) => {
+    try {
+        const count = await Product.countDocuments();
+
+        res.status(200).json({
+            count
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: "Failed to get product count",
+            error: error.message
+        });
+    }
+});
+
 // Get one product
 router.get("/:id", async (req, res) => {
     try {
