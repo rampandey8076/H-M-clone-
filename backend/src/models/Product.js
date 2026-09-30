@@ -4,22 +4,26 @@ const productSchema = new mongoose.Schema(
     {
         name: {
             type: String,
-            required: true
+            required: true,
+            trim: true
         },
 
         description: {
             type: String,
-            required: true
+            required: true,
+            trim: true
         },
 
         price: {
             type: Number,
-            required: true
+            required: true,
+            min: 0
         },
 
         category: {
             type: String,
-            required: true
+            required: true,
+            trim: true
         },
 
         images: {
@@ -39,7 +43,8 @@ const productSchema = new mongoose.Schema(
 
         stock: {
             type: Number,
-            required: true
+            required: true,
+            min: 0
         }
     },
     {
