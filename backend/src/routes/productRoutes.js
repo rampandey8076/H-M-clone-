@@ -17,12 +17,26 @@ router.post("/", async (req, res) => {
     }
 });
 
-// Get all products
+// Get all products with pagination
 router.get("/", async (req, res) => {
     try {
-        const products = await Product.find();
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
 
-        res.status(200).json(products);
+        const skip = (page - 1) * limit;
+
+        const products = await Product.find()
+            .skip(skip)
+            .limit(limit);
+
+        const totalProducts = await Product.countDocuments();
+
+        res.status(200).json({
+            page,
+            limit,
+            totalProducts,
+            products
+        });
     } catch (error) {
         res.status(500).json({
             message: "Failed to get products",
