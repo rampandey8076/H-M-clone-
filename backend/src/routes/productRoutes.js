@@ -17,19 +17,29 @@ router.post("/", async (req, res) => {
     }
 });
 
-// Get all products with pagination
+// Get all products with pagination and search
 router.get("/", async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
+        const search = req.query.search || "";
 
         const skip = (page - 1) * limit;
 
-        const products = await Product.find()
+        const filter = search
+            ? {
+                  $or: [
+                      { name: { $regex: search, $options: "i" } },
+                      { category: { $regex: search, $options: "i" } }
+                  ]
+              }
+            : {};
+
+        const products = await Product.find(filter)
             .skip(skip)
             .limit(limit);
 
-        const totalProducts = await Product.countDocuments();
+        const totalProducts = await Product.countDocuments(filter);
 
         res.status(200).json({
             page,
