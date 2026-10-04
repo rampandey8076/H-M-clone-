@@ -1,3 +1,6 @@
+cd ~/consistent/H-M-clone-
+
+cat > backend/src/routes/productRoutes.js <<'EOF'
 const express = require("express");
 const Product = require("../models/Product");
 
@@ -17,25 +20,46 @@ router.post("/", async (req, res) => {
     }
 });
 
-// Get all products with pagination and search
+// Get all products with pagination, search, category filter and price sorting
 router.get("/", async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const search = req.query.search || "";
+        const category = req.query.category || "";
+        const sort = req.query.sort || "";
 
         const skip = (page - 1) * limit;
 
-        const filter = search
-            ? {
-                  $or: [
-                      { name: { $regex: search, $options: "i" } },
-                      { category: { $regex: search, $options: "i" } }
-                  ]
-              }
-            : {};
+        const filter = {};
+
+        // Search by product name or category
+        if (search) {
+            filter.$or = [
+                { name: { $regex: search, $options: "i" } },
+                { category: { $regex: search, $options: "i" } }
+            ];
+        }
+
+        // Filter by category
+        if (category) {
+            filter.category = {
+                $regex: `^${category}$`,
+                $options: "i"
+            };
+        }
+
+        // Price sorting
+        let sortOption = {};
+
+        if (sort === "price_asc") {
+            sortOption.price = 1;
+        } else if (sort === "price_desc") {
+            sortOption.price = -1;
+        }
 
         const products = await Product.find(filter)
+            .sort(sortOption)
             .skip(skip)
             .limit(limit);
 
@@ -141,3 +165,4 @@ router.delete("/:id", async (req, res) => {
 });
 
 module.exports = router;
+EOF
