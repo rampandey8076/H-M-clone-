@@ -2,6 +2,7 @@ cd ~/consistent/H-M-clone-
 
 cat > backend/src/routes/productRoutes.js <<'EOF'
 const express = require("express");
+const mongoose = require("mongoose");
 const Product = require("../models/Product");
 
 const router = express.Router();
@@ -13,14 +14,14 @@ router.post("/", async (req, res) => {
 
         res.status(201).json(product);
     } catch (error) {
-        res.status(500).json({
+        res.status(400).json({
             message: "Failed to create product",
             error: error.message
         });
     }
 });
 
-// Get all products with pagination, search, category filter and price sorting
+// Get all products with search, category filter, sorting and pagination
 router.get("/", async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -28,6 +29,12 @@ router.get("/", async (req, res) => {
         const search = req.query.search || "";
         const category = req.query.category || "";
         const sort = req.query.sort || "";
+
+        if (page < 1 || limit < 1) {
+            return res.status(400).json({
+                message: "Page and limit must be greater than 0"
+            });
+        }
 
         const skip = (page - 1) * limit;
 
@@ -56,6 +63,10 @@ router.get("/", async (req, res) => {
             sortOption.price = 1;
         } else if (sort === "price_desc") {
             sortOption.price = -1;
+        } else if (sort !== "") {
+            return res.status(400).json({
+                message: "Invalid sort value. Use price_asc or price_desc"
+            });
         }
 
         const products = await Product.find(filter)
@@ -98,7 +109,15 @@ router.get("/count", async (req, res) => {
 // Get one product
 router.get("/:id", async (req, res) => {
     try {
-        const product = await Product.findById(req.params.id);
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                message: "Invalid product ID"
+            });
+        }
+
+        const product = await Product.findById(id);
 
         if (!product) {
             return res.status(404).json({
@@ -118,8 +137,16 @@ router.get("/:id", async (req, res) => {
 // Update product
 router.put("/:id", async (req, res) => {
     try {
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                message: "Invalid product ID"
+            });
+        }
+
         const product = await Product.findByIdAndUpdate(
-            req.params.id,
+            id,
             req.body,
             {
                 new: true,
@@ -135,7 +162,7 @@ router.put("/:id", async (req, res) => {
 
         res.status(200).json(product);
     } catch (error) {
-        res.status(500).json({
+        res.status(400).json({
             message: "Failed to update product",
             error: error.message
         });
@@ -145,7 +172,15 @@ router.put("/:id", async (req, res) => {
 // Delete product
 router.delete("/:id", async (req, res) => {
     try {
-        const product = await Product.findByIdAndDelete(req.params.id);
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                message: "Invalid product ID"
+            });
+        }
+
+        const product = await Product.findByIdAndDelete(id);
 
         if (!product) {
             return res.status(404).json({
