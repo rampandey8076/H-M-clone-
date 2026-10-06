@@ -1,6 +1,3 @@
-cd ~/consistent/H-M-clone-
-
-cat > backend/src/routes/productRoutes.js <<'EOF'
 const express = require("express");
 const mongoose = require("mongoose");
 const Product = require("../models/Product");
@@ -21,7 +18,7 @@ router.post("/", async (req, res) => {
     }
 });
 
-// Get all products with search, category filter, sorting and pagination
+// Get all products
 router.get("/", async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -30,9 +27,16 @@ router.get("/", async (req, res) => {
         const category = req.query.category || "";
         const sort = req.query.sort || "";
 
-        if (page < 1 || limit < 1) {
+        // Validate pagination
+        if (page < 1) {
             return res.status(400).json({
-                message: "Page and limit must be greater than 0"
+                message: "Page must be greater than 0"
+            });
+        }
+
+        if (limit < 1 || limit > 50) {
+            return res.status(400).json({
+                message: "Limit must be between 1 and 50"
             });
         }
 
@@ -40,7 +44,7 @@ router.get("/", async (req, res) => {
 
         const filter = {};
 
-        // Search by product name or category
+        // Search
         if (search) {
             filter.$or = [
                 { name: { $regex: search, $options: "i" } },
@@ -48,7 +52,7 @@ router.get("/", async (req, res) => {
             ];
         }
 
-        // Filter by category
+        // Category filter
         if (category) {
             filter.category = {
                 $regex: `^${category}$`,
@@ -69,17 +73,22 @@ router.get("/", async (req, res) => {
             });
         }
 
+        const totalProducts = await Product.countDocuments(filter);
+
+        const totalPages = Math.ceil(totalProducts / limit);
+
         const products = await Product.find(filter)
             .sort(sortOption)
             .skip(skip)
             .limit(limit);
 
-        const totalProducts = await Product.countDocuments(filter);
-
         res.status(200).json({
             page,
             limit,
             totalProducts,
+            totalPages,
+            hasNextPage: page < totalPages,
+            hasPreviousPage: page > 1,
             products
         });
     } catch (error) {
@@ -200,4 +209,3 @@ router.delete("/:id", async (req, res) => {
 });
 
 module.exports = router;
-EOF
