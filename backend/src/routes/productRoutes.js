@@ -18,7 +18,7 @@ router.post("/", async (req, res) => {
     }
 });
 
-// Get all products
+// Get products with search, filters, sorting and pagination
 router.get("/", async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -26,6 +26,16 @@ router.get("/", async (req, res) => {
         const search = req.query.search || "";
         const category = req.query.category || "";
         const sort = req.query.sort || "";
+
+        const minPrice =
+            req.query.minPrice !== undefined
+                ? Number(req.query.minPrice)
+                : null;
+
+        const maxPrice =
+            req.query.maxPrice !== undefined
+                ? Number(req.query.maxPrice)
+                : null;
 
         // Validate pagination
         if (page < 1) {
@@ -40,11 +50,43 @@ router.get("/", async (req, res) => {
             });
         }
 
+        // Validate prices
+        if (
+            (minPrice !== null && Number.isNaN(minPrice)) ||
+            (maxPrice !== null && Number.isNaN(maxPrice))
+        ) {
+            return res.status(400).json({
+                message: "minPrice and maxPrice must be valid numbers"
+            });
+        }
+
+        if (minPrice !== null && minPrice < 0) {
+            return res.status(400).json({
+                message: "minPrice cannot be negative"
+            });
+        }
+
+        if (maxPrice !== null && maxPrice < 0) {
+            return res.status(400).json({
+                message: "maxPrice cannot be negative"
+            });
+        }
+
+        if (
+            minPrice !== null &&
+            maxPrice !== null &&
+            minPrice > maxPrice
+        ) {
+            return res.status(400).json({
+                message: "minPrice cannot be greater than maxPrice"
+            });
+        }
+
         const skip = (page - 1) * limit;
 
         const filter = {};
 
-        // Search
+        // Search by name or category
         if (search) {
             filter.$or = [
                 { name: { $regex: search, $options: "i" } },
@@ -58,6 +100,19 @@ router.get("/", async (req, res) => {
                 $regex: `^${category}$`,
                 $options: "i"
             };
+        }
+
+        // Price range filter
+        if (minPrice !== null || maxPrice !== null) {
+            filter.price = {};
+
+            if (minPrice !== null) {
+                filter.price.$gte = minPrice;
+            }
+
+            if (maxPrice !== null) {
+                filter.price.$lte = maxPrice;
+            }
         }
 
         // Price sorting
