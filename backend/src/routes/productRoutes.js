@@ -26,6 +26,7 @@ router.get("/", async (req, res) => {
         const search = req.query.search || "";
         const category = req.query.category || "";
         const sort = req.query.sort || "";
+        const inStock = req.query.inStock;
 
         const minPrice =
             req.query.minPrice !== undefined
@@ -112,6 +113,23 @@ router.get("/", async (req, res) => {
 
             if (maxPrice !== null) {
                 filter.price.$lte = maxPrice;
+            }
+        }
+
+        // Stock filter
+        if (inStock !== undefined) {
+            if (inStock !== "true" && inStock !== "false") {
+                return res.status(400).json({
+                    message: "Invalid inStock value. Use true or false"
+                });
+            }
+
+            if (inStock === "true") {
+                filter.stock = { $gt: 0 };
+            }
+
+            if (inStock === "false") {
+                filter.stock = 0;
             }
         }
 
