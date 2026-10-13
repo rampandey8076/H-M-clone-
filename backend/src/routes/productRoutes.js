@@ -18,6 +18,72 @@ router.post("/", async (req, res) => {
     }
 });
 
+
+// Get single product by ID
+router.get("/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                message: "Invalid product ID"
+            });
+        }
+
+        const product = await Product.findById(id);
+
+        if (!product) {
+            return res.status(404).json({
+                message: "Product not found"
+            });
+        }
+
+        res.status(200).json(product);
+    } catch (error) {
+        res.status(500).json({
+            message: "Failed to fetch product",
+            error: error.message
+        });
+    }
+});
+
+// Get related products from the same category
+router.get("/:id/related", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                message: "Invalid product ID"
+            });
+        }
+
+        const product = await Product.findById(id);
+
+        if (!product) {
+            return res.status(404).json({
+                message: "Product not found"
+            });
+        }
+
+        const relatedProducts = await Product.find({
+            category: product.category,
+            _id: { $ne: product._id }
+        }).limit(4);
+
+        res.status(200).json({
+            productId: product._id,
+            category: product.category,
+            relatedProducts
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: "Failed to fetch related products",
+            error: error.message
+        });
+    }
+});
+
 // Get products with search, filters, sorting and pagination
 router.get("/", async (req, res) => {
     try {
