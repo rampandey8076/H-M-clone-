@@ -2,6 +2,7 @@ const express = require("express");
 const productRoutes = require("./routes/productRoutes");
 const wishlistRoutes = require("./routes/wishlistRoutes");
 const cartRoutes = require("./routes/cartRoutes");
+const orderRoutes = require("./routes/orderRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
 
 const app = express();
@@ -25,6 +26,9 @@ app.use("/api", wishlistRoutes);
 
 // Cart routes
 app.use("/api", cartRoutes);
+
+// Order routes
+app.use("/api", orderRoutes);
 
 // Review routes
 app.use("/api", reviewRoutes);
