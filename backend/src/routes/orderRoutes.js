@@ -7,6 +7,11 @@ const Order = require("../models/Order");
 
 const router = express.Router();
 
+
+// ==========================================
+// CREATE ORDER FROM CART
+// ==========================================
+
 router.post("/orders", async (req, res) => {
     try {
         const { userId } = req.body;
@@ -59,7 +64,11 @@ router.post("/orders", async (req, res) => {
         for (const cartItem of cartItems) {
             await Product.findByIdAndUpdate(
                 cartItem.product._id,
-                { $inc: { stock: -cartItem.quantity } }
+                {
+                    $inc: {
+                        stock: -cartItem.quantity
+                    }
+                }
             );
         }
 
@@ -83,6 +92,11 @@ router.post("/orders", async (req, res) => {
     }
 });
 
+
+// ==========================================
+// GET USER ORDERS
+// ==========================================
+
 router.get("/orders/:userId", async (req, res) => {
     try {
         const { userId } = req.params;
@@ -102,6 +116,11 @@ router.get("/orders/:userId", async (req, res) => {
         });
     }
 });
+
+
+// ==========================================
+// GET SINGLE ORDER
+// ==========================================
 
 router.get("/orders/:userId/:orderId", async (req, res) => {
     try {
@@ -132,6 +151,11 @@ router.get("/orders/:userId/:orderId", async (req, res) => {
         });
     }
 });
+
+
+// ==========================================
+// UPDATE ORDER STATUS
+// ==========================================
 
 router.patch("/orders/:orderId/status", async (req, res) => {
     try {
@@ -167,6 +191,7 @@ router.patch("/orders/:orderId/status", async (req, res) => {
         }
 
         order.status = status;
+
         await order.save();
 
         res.status(200).json({
@@ -180,5 +205,75 @@ router.patch("/orders/:orderId/status", async (req, res) => {
         });
     }
 });
+
+
+// ==========================================
+// CANCEL ORDER
+// ==========================================
+
+router.patch("/orders/:userId/:orderId/cancel", async (req, res) => {
+    try {
+        const { userId, orderId } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({
+                message: "Invalid order ID"
+            });
+        }
+
+        const order = await Order.findOne({
+            _id: orderId,
+            userId
+        });
+
+        if (!order) {
+            return res.status(404).json({
+                message: "Order not found"
+            });
+        }
+
+        if (order.status === "cancelled") {
+            return res.status(400).json({
+                message: "Order is already cancelled"
+            });
+        }
+
+        if (
+            order.status === "shipped" ||
+            order.status === "delivered"
+        ) {
+            return res.status(400).json({
+                message: "Order cannot be cancelled after shipping"
+            });
+        }
+
+        // Restore product stock
+        for (const item of order.items) {
+            await Product.findByIdAndUpdate(
+                item.product,
+                {
+                    $inc: {
+                        stock: item.quantity
+                    }
+                }
+            );
+        }
+
+        order.status = "cancelled";
+
+        await order.save();
+
+        res.status(200).json({
+            message: "Order cancelled successfully",
+            order
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: "Failed to cancel order",
+            error: error.message
+        });
+    }
+});
+
 
 module.exports = router;
