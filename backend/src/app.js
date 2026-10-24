@@ -4,6 +4,8 @@ const wishlistRoutes = require("./routes/wishlistRoutes");
 const cartRoutes = require("./routes/cartRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
+const inventoryRoutes = require("./routes/inventoryRoutes");
+const couponRoutes = require("./routes/couponRoutes");
 
 const app = express();
 
@@ -29,6 +31,12 @@ app.use("/api", cartRoutes);
 
 // Order routes
 app.use("/api", orderRoutes);
+
+// Inventory routes
+app.use("/api", inventoryRoutes);
+
+// Coupon routes
+app.use("/api", couponRoutes);
 
 // Review routes
 app.use("/api", reviewRoutes);
