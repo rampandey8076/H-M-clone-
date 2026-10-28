@@ -1,279 +1,286 @@
 const express = require("express");
 const mongoose = require("mongoose");
-
-const Product = require("../models/Product");
-const Cart = require("../models/Cart");
-const Order = require("../models/Order");
-
 const router = express.Router();
 
+const Cart = require("../models/Cart");
+const Product = require("../models/Product");
+const Order = require("../models/Order");
+const Coupon = require("../models/Coupon");
 
-// ==========================================
-// CREATE ORDER FROM CART
-// ==========================================
+const calculateDiscount = (coupon, subtotal) => {
+  if (!coupon) return 0;
 
-router.post("/orders", async (req, res) => {
-    try {
-        const { userId } = req.body;
+  let discount = 0;
 
-        if (!userId) {
-            return res.status(400).json({
-                message: "userId is required"
-            });
-        }
+  if (coupon.discountType === "percentage") {
+    discount = (subtotal * coupon.discountValue) / 100;
 
-        const cartItems = await Cart.find({ userId }).populate("product");
-
-        if (cartItems.length === 0) {
-            return res.status(400).json({
-                message: "Cart is empty"
-            });
-        }
-
-        const orderItems = [];
-        let totalAmount = 0;
-
-        for (const cartItem of cartItems) {
-            const product = cartItem.product;
-
-            if (!product) {
-                return res.status(404).json({
-                    message: "A product in the cart no longer exists"
-                });
-            }
-
-            if (cartItem.quantity > product.stock) {
-                return res.status(400).json({
-                    message: `Only ${product.stock} items are available for ${product.name}`
-                });
-            }
-
-            const subtotal = product.price * cartItem.quantity;
-
-            orderItems.push({
-                product: product._id,
-                name: product.name,
-                price: product.price,
-                quantity: cartItem.quantity,
-                subtotal
-            });
-
-            totalAmount += subtotal;
-        }
-
-        for (const cartItem of cartItems) {
-            await Product.findByIdAndUpdate(
-                cartItem.product._id,
-                {
-                    $inc: {
-                        stock: -cartItem.quantity
-                    }
-                }
-            );
-        }
-
-        const order = await Order.create({
-            userId,
-            items: orderItems,
-            totalAmount
-        });
-
-        await Cart.deleteMany({ userId });
-
-        res.status(201).json({
-            message: "Order created successfully",
-            order
-        });
-    } catch (error) {
-        res.status(500).json({
-            message: "Failed to create order",
-            error: error.message
-        });
+    if (coupon.maxDiscount && discount > coupon.maxDiscount) {
+      discount = coupon.maxDiscount;
     }
+  } else {
+    discount = coupon.discountValue;
+  }
+
+  return Math.min(Math.max(discount, 0), subtotal);
+};
+
+// Create order from cart
+router.post("/", async (req, res) => {
+  try {
+    const {
+      userId,
+      couponCode,
+      shippingAddress,
+    } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        message: "userId is required",
+      });
+    }
+
+    const cart = await Cart.findOne({ userId });
+
+    if (!cart || !cart.items || cart.items.length === 0) {
+      return res.status(400).json({
+        message: "Cart is empty",
+      });
+    }
+
+    let subtotal = 0;
+    const orderItems = [];
+
+    for (const item of cart.items) {
+      const product = await Product.findById(item.productId);
+
+      if (!product) {
+        return res.status(404).json({
+          message: `Product ${item.productId} not found`,
+        });
+      }
+
+      if (product.stock < item.quantity) {
+        return res.status(400).json({
+          message: `Insufficient stock for ${product.name}`,
+        });
+      }
+
+      const itemTotal = product.price * item.quantity;
+      subtotal += itemTotal;
+
+      orderItems.push({
+        product: product._id,
+        name: product.name,
+        price: product.price,
+        quantity: item.quantity,
+        size: item.size,
+        color: item.color,
+        image: product.images?.[0] || null,
+      });
+    }
+
+    let discount = 0;
+    let appliedCouponCode = null;
+
+    if (couponCode) {
+      const normalizedCode = couponCode.trim().toUpperCase();
+
+      const coupon = await Coupon.findOne({
+        code: normalizedCode,
+        isActive: true,
+        expiresAt: { $gt: new Date() },
+      });
+
+      if (!coupon) {
+        return res.status(400).json({
+          message: "Invalid or expired coupon",
+        });
+      }
+
+      if (subtotal < coupon.minOrderAmount) {
+        return res.status(400).json({
+          message: `Minimum order amount for this coupon is ${coupon.minOrderAmount}`,
+        });
+      }
+
+      discount = calculateDiscount(coupon, subtotal);
+      appliedCouponCode = coupon.code;
+    }
+
+    const totalAmount = Math.max(subtotal - discount, 0);
+
+    const order = await Order.create({
+      userId,
+      items: orderItems,
+      subtotal,
+      discount,
+      totalAmount,
+      couponCode: appliedCouponCode,
+      shippingAddress,
+      status: "pending",
+    });
+
+    for (const item of cart.items) {
+      await Product.findByIdAndUpdate(item.productId, {
+        $inc: { stock: -item.quantity },
+      });
+    }
+
+    await Cart.findOneAndDelete({ userId });
+
+    res.status(201).json({
+      message: "Order created successfully",
+      order,
+    });
+  } catch (error) {
+    console.error("Create order error:", error);
+    res.status(500).json({
+      message: "Failed to create order",
+      error: error.message,
+    });
+  }
 });
 
+// Get all orders for a user
+router.get("/:userId", async (req, res) => {
+  try {
+    const orders = await Order.find({
+      userId: req.params.userId,
+    }).sort({ createdAt: -1 });
 
-// ==========================================
-// GET USER ORDERS
-// ==========================================
-
-router.get("/orders/:userId", async (req, res) => {
-    try {
-        const { userId } = req.params;
-
-        const orders = await Order.find({ userId })
-            .sort({ createdAt: -1 });
-
-        res.status(200).json({
-            userId,
-            totalOrders: orders.length,
-            orders
-        });
-    } catch (error) {
-        res.status(500).json({
-            message: "Failed to fetch orders",
-            error: error.message
-        });
-    }
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to fetch orders",
+      error: error.message,
+    });
+  }
 });
 
+// Get single order
+router.get("/:userId/:orderId", async (req, res) => {
+  try {
+    const { userId, orderId } = req.params;
 
-// ==========================================
-// GET SINGLE ORDER
-// ==========================================
-
-router.get("/orders/:userId/:orderId", async (req, res) => {
-    try {
-        const { userId, orderId } = req.params;
-
-        if (!mongoose.Types.ObjectId.isValid(orderId)) {
-            return res.status(400).json({
-                message: "Invalid order ID"
-            });
-        }
-
-        const order = await Order.findOne({
-            _id: orderId,
-            userId
-        });
-
-        if (!order) {
-            return res.status(404).json({
-                message: "Order not found"
-            });
-        }
-
-        res.status(200).json(order);
-    } catch (error) {
-        res.status(500).json({
-            message: "Failed to fetch order",
-            error: error.message
-        });
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({
+        message: "Invalid order ID",
+      });
     }
+
+    const order = await Order.findOne({
+      _id: orderId,
+      userId,
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        message: "Order not found",
+      });
+    }
+
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to fetch order",
+      error: error.message,
+    });
+  }
 });
 
+// Update order status
+router.patch("/:orderId/status", async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
 
-// ==========================================
-// UPDATE ORDER STATUS
-// ==========================================
+    const allowedStatuses = [
+      "pending",
+      "confirmed",
+      "processing",
+      "shipped",
+      "delivered",
+      "cancelled",
+    ];
 
-router.patch("/orders/:orderId/status", async (req, res) => {
-    try {
-        const { orderId } = req.params;
-        const { status } = req.body;
-
-        if (!mongoose.Types.ObjectId.isValid(orderId)) {
-            return res.status(400).json({
-                message: "Invalid order ID"
-            });
-        }
-
-        const allowedStatuses = [
-            "pending",
-            "confirmed",
-            "shipped",
-            "delivered",
-            "cancelled"
-        ];
-
-        if (!allowedStatuses.includes(status)) {
-            return res.status(400).json({
-                message: "Invalid order status"
-            });
-        }
-
-        const order = await Order.findById(orderId);
-
-        if (!order) {
-            return res.status(404).json({
-                message: "Order not found"
-            });
-        }
-
-        order.status = status;
-
-        await order.save();
-
-        res.status(200).json({
-            message: "Order status updated",
-            order
-        });
-    } catch (error) {
-        res.status(500).json({
-            message: "Failed to update order status",
-            error: error.message
-        });
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Invalid order status",
+      });
     }
+
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      { status },
+      { new: true, runValidators: true }
+    );
+
+    if (!order) {
+      return res.status(404).json({
+        message: "Order not found",
+      });
+    }
+
+    res.json({
+      message: "Order status updated",
+      order,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to update order status",
+      error: error.message,
+    });
+  }
 });
 
+// Cancel order and restore stock
+router.patch("/:userId/:orderId/cancel", async (req, res) => {
+  try {
+    const { userId, orderId } = req.params;
 
-// ==========================================
-// CANCEL ORDER
-// ==========================================
+    const order = await Order.findOne({
+      _id: orderId,
+      userId,
+    });
 
-router.patch("/orders/:userId/:orderId/cancel", async (req, res) => {
-    try {
-        const { userId, orderId } = req.params;
-
-        if (!mongoose.Types.ObjectId.isValid(orderId)) {
-            return res.status(400).json({
-                message: "Invalid order ID"
-            });
-        }
-
-        const order = await Order.findOne({
-            _id: orderId,
-            userId
-        });
-
-        if (!order) {
-            return res.status(404).json({
-                message: "Order not found"
-            });
-        }
-
-        if (order.status === "cancelled") {
-            return res.status(400).json({
-                message: "Order is already cancelled"
-            });
-        }
-
-        if (
-            order.status === "shipped" ||
-            order.status === "delivered"
-        ) {
-            return res.status(400).json({
-                message: "Order cannot be cancelled after shipping"
-            });
-        }
-
-        // Restore product stock
-        for (const item of order.items) {
-            await Product.findByIdAndUpdate(
-                item.product,
-                {
-                    $inc: {
-                        stock: item.quantity
-                    }
-                }
-            );
-        }
-
-        order.status = "cancelled";
-
-        await order.save();
-
-        res.status(200).json({
-            message: "Order cancelled successfully",
-            order
-        });
-    } catch (error) {
-        res.status(500).json({
-            message: "Failed to cancel order",
-            error: error.message
-        });
+    if (!order) {
+      return res.status(404).json({
+        message: "Order not found",
+      });
     }
-});
 
+    if (order.status === "cancelled") {
+      return res.status(400).json({
+        message: "Order is already cancelled",
+      });
+    }
+
+    if (["shipped", "delivered"].includes(order.status)) {
+      return res.status(400).json({
+        message: "Order cannot be cancelled at this stage",
+      });
+    }
+
+    for (const item of order.items) {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { stock: item.quantity },
+      });
+    }
+
+    order.status = "cancelled";
+    await order.save();
+
+    res.json({
+      message: "Order cancelled and stock restored",
+      order,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to cancel order",
+      error: error.message,
+    });
+  }
+});
 
 module.exports = router;

@@ -1,62 +1,83 @@
 const mongoose = require("mongoose");
 
 const orderItemSchema = new mongoose.Schema(
-    {
-        product: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Product",
-            required: true
-        },
-        name: {
-            type: String,
-            required: true
-        },
-        price: {
-            type: Number,
-            required: true,
-            min: 0
-        },
-        quantity: {
-            type: Number,
-            required: true,
-            min: 1
-        },
-        subtotal: {
-            type: Number,
-            required: true,
-            min: 0
-        }
+  {
+    product: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      required: true,
     },
-    { _id: false }
+    name: String,
+    price: Number,
+    quantity: Number,
+    size: String,
+    color: String,
+    image: String,
+  },
+  { _id: false }
 );
 
 const orderSchema = new mongoose.Schema(
-    {
-        userId: {
-            type: String,
-            required: true,
-            trim: true
-        },
-        items: {
-            type: [orderItemSchema],
-            required: true,
-            validate: {
-                validator: (items) => items.length > 0,
-                message: "Order must contain at least one item"
-            }
-        },
-        totalAmount: {
-            type: Number,
-            required: true,
-            min: 0
-        },
-        status: {
-            type: String,
-            enum: ["pending", "confirmed", "shipped", "delivered", "cancelled"],
-            default: "pending"
-        }
+  {
+    userId: {
+      type: String,
+      required: true,
+      index: true,
     },
-    { timestamps: true }
+
+    items: {
+      type: [orderItemSchema],
+      required: true,
+    },
+
+    subtotal: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    discount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    totalAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    couponCode: {
+      type: String,
+      default: null,
+      uppercase: true,
+      trim: true,
+    },
+
+    status: {
+      type: String,
+      enum: [
+        "pending",
+        "confirmed",
+        "processing",
+        "shipped",
+        "delivered",
+        "cancelled",
+      ],
+      default: "pending",
+    },
+
+    shippingAddress: {
+      name: String,
+      phone: String,
+      address: String,
+      city: String,
+      state: String,
+      pincode: String,
+    },
+  },
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("Order", orderSchema);
