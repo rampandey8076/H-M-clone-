@@ -52,4 +52,7 @@ app.use((req, res) => {
     });
 });
 
+const profileRoutes = require("./routes/profileRoutes");
+app.use("/api/profile", profileRoutes);
+
 module.exports = app;
