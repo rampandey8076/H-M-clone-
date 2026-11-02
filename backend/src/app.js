@@ -55,4 +55,7 @@ app.use((req, res) => {
 const profileRoutes = require("./routes/profileRoutes");
 app.use("/api/profile", profileRoutes);
 
+const addressRoutes = require("./routes/addressRoutes");
+app.use("/api/addresses", addressRoutes);
+
 module.exports = app;
