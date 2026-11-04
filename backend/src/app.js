@@ -61,4 +61,7 @@ app.use("/api/addresses", addressRoutes);
 const shipmentRoutes = require("./routes/shipmentRoutes");
 app.use("/api/shipments", shipmentRoutes);
 
+const returnRoutes = require("./routes/returnRoutes");
+app.use("/api/returns", returnRoutes);
+
 module.exports = app;
