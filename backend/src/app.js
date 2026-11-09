@@ -8,6 +8,7 @@ const inventoryRoutes = require("./routes/inventoryRoutes");
 const couponRoutes = require("./routes/couponRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const authRoutes = require("./routes/authRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 const app = express();
 
@@ -44,6 +45,8 @@ app.use("/api", couponRoutes);
 app.use("/api", reviewRoutes);
 app.use("/api", paymentRoutes);
 app.use("/api", authRoutes);
+
+app.use("/api/admin", adminRoutes);
 
 // 404 handler
 app.use((req, res) => {
