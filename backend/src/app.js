@@ -1,4 +1,5 @@
 const express = require("express");
+
 const productRoutes = require("./routes/productRoutes");
 const wishlistRoutes = require("./routes/wishlistRoutes");
 const cartRoutes = require("./routes/cartRoutes");
@@ -9,6 +10,10 @@ const couponRoutes = require("./routes/couponRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const profileRoutes = require("./routes/profileRoutes");
+const addressRoutes = require("./routes/addressRoutes");
+const shipmentRoutes = require("./routes/shipmentRoutes");
+const returnRoutes = require("./routes/returnRoutes");
 
 const app = express();
 
@@ -27,44 +32,32 @@ app.get("/about", (req, res) => {
 
 // Product routes
 app.use("/api/products", productRoutes);
+
+// Customer routes
 app.use("/api", wishlistRoutes);
-
-// Cart routes
 app.use("/api", cartRoutes);
-
-// Order routes
 app.use("/api", orderRoutes);
-
-// Inventory routes
 app.use("/api", inventoryRoutes);
-
-// Coupon routes
 app.use("/api", couponRoutes);
-
-// Review routes
 app.use("/api", reviewRoutes);
 app.use("/api", paymentRoutes);
 app.use("/api", authRoutes);
 
+// Account and delivery routes
+app.use("/api/profile", profileRoutes);
+app.use("/api/addresses", addressRoutes);
+app.use("/api/shipments", shipmentRoutes);
+app.use("/api/returns", returnRoutes);
+
+// Admin routes
 app.use("/api/admin", adminRoutes);
 
-// 404 handler
+// Keep the 404 handler LAST
 app.use((req, res) => {
     res.status(404).json({
+        success: false,
         message: "404 - Route not found"
     });
 });
-
-const profileRoutes = require("./routes/profileRoutes");
-app.use("/api/profile", profileRoutes);
-
-const addressRoutes = require("./routes/addressRoutes");
-app.use("/api/addresses", addressRoutes);
-
-const shipmentRoutes = require("./routes/shipmentRoutes");
-app.use("/api/shipments", shipmentRoutes);
-
-const returnRoutes = require("./routes/returnRoutes");
-app.use("/api/returns", returnRoutes);
 
 module.exports = app;
